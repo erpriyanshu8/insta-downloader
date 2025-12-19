@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Download public Instagram reels and posts - Fast, free, and secure">
+    <title>Instagram Downloader - Public Content</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="theme-toggle">
+        <button id="themeToggle" aria-label="Toggle theme">
+            <span class="icon">🌙</span>
+        </button>
+    </div>
+
+    <div class="container">
+        <header class="header">
+            <h1>📥 Instagram Downloader</h1>
+            <p class="subtitle">Download public reels and posts instantly</p>
+        </header>
+
+        <main class="main-content">
+            <div class="input-section">
+                <form id="downloadForm">
+                    <div class="input-wrapper">
+                        <input 
+                            type="text" 
+                            id="urlInput" 
+                            placeholder="Paste Instagram URL or username..."
+                            autocomplete="off"
+                            required
+                        >
+                        <button type="submit" id="submitBtn" class="btn-primary">
+                            <span class="btn-text">Download</span>
+                            <span class="btn-loader"></span>
+                        </button>
+                    </div>
+                    <p class="input-hint">
+                        💡 Paste a reel/post URL or username to get started
+                    </p>
+                </form>
+            </div>
+
+            <div id="statusMessage" class="status-message"></div>
+
+            <div id="resultSection" class="result-section" style="display: none;">
+                <!-- Single post result -->
+                <div id="singleResult" class="result-card" style="display: none;">
+                    <h2>✅ Download Ready</h2>
+                    <div class="caption-box">
+                        <p class="caption-label">Caption:</p>
+                        <p id="captionText" class="caption-text"></p>
+                        <button id="copyCaptionBtn" class="btn-secondary">
+                            📋 Copy Caption
+                        </button>
+                    </div>
+                    <a id="downloadVideoBtn" class="btn-download" download>
+                        ⬇️ Download Video
+                    </a>
+                </div>
+
+                <!-- Profile result -->
+                <div id="profileResult" class="result-card" style="display: none;">
+                    <h2>✅ Profile Download Complete</h2>
+                    <p class="post-count">
+                        <strong id="postCount">0</strong> videos downloaded
+                    </p>
+                    <a id="downloadZipBtn" class="btn-download" download>
+                        📦 Download ZIP
+                    </a>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>⚠️ Only public Instagram content is supported</p>
+            <p>🔒 No login required • Privacy-first • Free forever</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
