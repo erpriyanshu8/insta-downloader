@@ -80,7 +80,6 @@ graph LR
     C --> E[Display + Caption]
     D --> F[Create ZIP]
     E --> G[Download]
-    F --> G
 ```
 
 ---
@@ -97,7 +96,7 @@ Just visit the live site and start downloading! No installation needed.
 
 ```
 # Clone repository
-git clone https://github.com/YOUR_USERNAME/insta-downloader.git
+git clone https://github.com/erpriyanshu8/insta-downloader.git
 cd insta-downloader
 
 # Create virtual environment
@@ -403,7 +402,7 @@ This is for personal use only. Commercial use may violate Instagram's Terms of S
 
 ### Love this project? Show your support! ⭐
 
-[![Star on GitHub](https://img.shields.io/github/stars/YOUR_USERNAME/insta-downloader?style=social)](https://github.com/YOUR_USERNAME/insta-downloader)
+[![Star on GitHub](https://img.shields.io/github/stars/YOUR_USERNAME/insta-downloader?style=social)](https://github.com/erpriyanshu8/insta-downloader)
 
 **Found a bug?** [Report it here](#)  
 **Have a question?** [Ask in Discussions](#)  
@@ -413,11 +412,9 @@ This is for personal use only. Commercial use may violate Instagram's Terms of S
 
 ### 📧 Contact
 
-**Developer:** Your Name  
-**Email:** your.email@example.com  
-**GitHub:** [@yourhandle](https://github.com/yourhandle)  
-**Twitter:** [@yourhandle](https://twitter.com/yourhandle)
-
+**Developer:** Priyanshu Kumar 
+**Email:** erpriyanshu8@gmail.com  
+**GitHub:** [@erpriyanshu8](https://github.com/erpriyanshu8)  
 </div>
 
 ---
@@ -429,7 +426,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 ```
 MIT License
 
-Copyright (c) 2025 Your Name
+Copyright (c) 2025 Priyanshu Kumar
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -455,6 +452,3 @@ SOFTWARE.
 ## 🙏 Acknowledgments
 
 - [Instaloader](https://github.com/instaloader/instaloader) - Core downloading
-
-Citations:
-[1] 1000099976.jpg https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/images/83979463/ad32ab58-e270-446d-9c0a-ba6713bb1d9b/1000099976.jpg
