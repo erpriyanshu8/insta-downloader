@@ -3,196 +3,135 @@ import time
 import uuid
 from pathlib import Path
 from flask import Flask, render_template, request, jsonify, send_file
-from werkzeug.exceptions import RequestEntityTooLarge
-from utils.validators import InputValidator
-from utils.downloader import InstagramDownloader
-from utils.zipper import ZipCreator
-from utils.rate_limiter import RateLimiter
-from utils.cleaner import FileCleaner
 
-# Flask app factory
 def create_app():
     app = Flask(__name__)
-    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max request
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24).hex())
+    app.config['SECRET_KEY'] = os.urandom(24).hex()
     
-    # Initialize directories
     base_dir = Path(__file__).parent
     downloads_dir = base_dir / 'downloads'
     (downloads_dir / 'single').mkdir(parents=True, exist_ok=True)
     (downloads_dir / 'profiles').mkdir(parents=True, exist_ok=True)
     (downloads_dir / 'zips').mkdir(parents=True, exist_ok=True)
     
-    # Initialize utilities
-    validator = InputValidator()
-    downloader = InstagramDownloader(str(downloads_dir))
-    zipper = ZipCreator()
-    rate_limiter = RateLimiter(max_requests=20, window_seconds=60)
-    cleaner = FileCleaner(str(downloads_dir), max_age_minutes=30)
+    # Import here to avoid startup errors
+    try:
+        import instaloader
+        loader = instaloader.Instaloader(
+            download_videos=True,
+            download_video_thumbnails=False,
+            download_geotags=False,
+            download_comments=False,
+            save_metadata=False,
+            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        )
+        INSTALOADER_AVAILABLE = True
+    except:
+        INSTALOADER_AVAILABLE = False
+        loader = None
     
-    # Start background cleaner
-    cleaner.start_cleanup_thread()
-    
-    @app.route('/', methods=['GET'])
+    @app.route('/')
     def index():
         return render_template('index.html')
     
     @app.route('/download', methods=['POST'])
     def download():
+        if not INSTALOADER_AVAILABLE:
+            return jsonify({
+                'success': False,
+                'error': 'Instagram downloader is not available. Please contact support.'
+            }), 500
+        
         try:
-            # Rate limiting
-            client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-            if not rate_limiter.allow_request(client_ip):
-                return jsonify({
-                    'success': False,
-                    'error': 'Rate limit exceeded. Please wait before trying again.'
-                }), 429
-            
-            # Get and validate input
             data = request.get_json()
             if not data or 'url' not in data:
-                return jsonify({
-                    'success': False,
-                    'error': 'No input provided'
-                }), 400
+                return jsonify({'success': False, 'error': 'No URL provided'}), 400
             
-            user_input = data['url'].strip()
+            url = data['url'].strip()
             
-            # Validate and detect input type
-            is_valid, error_msg = validator.validate_input(user_input)
-            if not is_valid:
-                return jsonify({
-                    'success': False,
-                    'error': error_msg
-                }), 400
+            # Extract shortcode
+            import re
+            patterns = [r'/p/([A-Za-z0-9_-]+)', r'/reel/([A-Za-z0-9_-]+)', r'/tv/([A-Za-z0-9_-]+)']
+            shortcode = None
+            for pattern in patterns:
+                match = re.search(pattern, url)
+                if match:
+                    shortcode = match.group(1)
+                    break
             
-            input_type = validator.detect_input_type(user_input)
-            sanitized_input = validator.sanitize_input(user_input)
+            if not shortcode:
+                return jsonify({'success': False, 'error': 'Invalid Instagram URL'}), 400
             
-            # Process based on input type
-            if input_type == 'post':
-                # Single post download
-                result = downloader.download_single_post(sanitized_input)
+            # Download post
+            post = instaloader.Post.from_shortcode(loader.context, shortcode)
+            
+            if not post.is_video:
+                return jsonify({'success': False, 'error': 'This post does not contain a video'}), 400
+            
+            uid = uuid.uuid4().hex[:8]
+            username = post.owner_username
+            filename = username + '_' + shortcode + '_' + uid + '.mp4'
+            filepath = downloads_dir / 'single' / filename
+            
+            # Download with timeout
+            loader.download_post(post, target=str(filepath.parent / uid))
+            
+            # Find downloaded video
+            files = list(filepath.parent.glob(uid + '*.mp4'))
+            if files:
+                files[0].rename(filepath)
                 
-                if not result['success']:
-                    return jsonify({
-                        'success': False,
-                        'error': result['error']
-                    }), 400
+                # Cleanup
+                for f in filepath.parent.glob(uid + '*'):
+                    if f != filepath:
+                        try:
+                            f.unlink()
+                        except:
+                            pass
+                
+                caption = ''
+                try:
+                    caption = post.caption if post.caption else ''
+                except:
+                    pass
                 
                 return jsonify({
                     'success': True,
                     'type': 'single',
-                    'caption': result.get('caption', ''),
-                    'video_url': f"/serve/{result['filename']}",
-                    'filename': result['filename'],
+                    'caption': caption,
+                    'video_url': '/serve/' + filename,
+                    'filename': filename,
                     'message': 'Download ready!'
                 })
             
-            elif input_type == 'profile':
-                # Profile bulk download
-                result = downloader.download_profile(sanitized_input)
-                
-                if not result['success']:
-                    return jsonify({
-                        'success': False,
-                        'error': result['error']
-                    }), 400
-                
-                # Create ZIP file
-                zip_result = zipper.create_profile_zip(
-                    result['download_path'],
-                    result['username']
-                )
-                
-                if not zip_result['success']:
-                    return jsonify({
-                        'success': False,
-                        'error': 'Failed to create ZIP file'
-                    }), 500
-                
-                return jsonify({
-                    'success': True,
-                    'type': 'profile',
-                    'zip_url': f"/serve/{zip_result['filename']}",
-                    'filename': zip_result['filename'],
-                    'post_count': result.get('post_count', 0),
-                    'message': f'Downloaded {result.get("post_count", 0)} posts!'
-                })
-            
-            else:
-                return jsonify({
-                    'success': False,
-                    'error': 'Invalid input type'
-                }), 400
-                
-        except RequestEntityTooLarge:
-            return jsonify({
-                'success': False,
-                'error': 'Request too large'
-            }), 413
+            return jsonify({'success': False, 'error': 'Failed to download video'}), 500
             
         except Exception as e:
-            app.logger.error(f'Unexpected error: {str(e)}')
-            return jsonify({
-                'success': False,
-                'error': 'An unexpected error occurred. Please try again.'
-            }), 500
+            return jsonify({'success': False, 'error': 'Error: ' + str(e)}), 500
     
-    @app.route('/serve/<filename>', methods=['GET'])
+    @app.route('/serve/<filename>')
     def serve_file(filename):
         try:
-            # Sanitize filename to prevent directory traversal
             safe_filename = Path(filename).name
+            filepath = downloads_dir / 'single' / safe_filename
             
-            # Check in single downloads
-            single_path = downloads_dir / 'single' / safe_filename
-            if single_path.exists() and single_path.is_file():
-                return send_file(
-                    single_path,
-                    as_attachment=True,
-                    download_name=safe_filename
-                )
+            if filepath.exists() and filepath.is_file():
+                return send_file(filepath, as_attachment=True, download_name=safe_filename)
             
-            # Check in zips
-            zip_path = downloads_dir / 'zips' / safe_filename
-            if zip_path.exists() and zip_path.is_file():
-                return send_file(
-                    zip_path,
-                    as_attachment=True,
-                    download_name=safe_filename
-                )
-            
-            return jsonify({
-                'success': False,
-                'error': 'File not found'
-            }), 404
-            
+            return jsonify({'error': 'File not found'}), 404
         except Exception as e:
-            app.logger.error(f'File serve error: {str(e)}')
-            return jsonify({
-                'success': False,
-                'error': 'Error serving file'
-            }), 500
+            return jsonify({'error': str(e)}), 500
     
-    @app.route('/health', methods=['GET'])
-    def health_check():
+    @app.route('/health')
+    def health():
         return jsonify({
             'status': 'healthy',
+            'instaloader': INSTALOADER_AVAILABLE,
             'timestamp': int(time.time())
         })
     
-    @app.errorhandler(404)
-    def not_found(e):
-        return jsonify({'error': 'Not found'}), 404
-    
-    @app.errorhandler(500)
-    def internal_error(e):
-        return jsonify({'error': 'Internal server error'}), 500
-    
     return app
 
-# Create app instance
 app = create_app()
 
 if __name__ == '__main__':
