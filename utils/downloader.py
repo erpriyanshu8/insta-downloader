@@ -104,13 +104,9 @@ class InstagramDownloader:
             captions_file = download_path / 'captions.txt'
             with open(captions_file, 'w', encoding='utf-8') as f:
                 for item in captions_data:
-                    f.write('File: ' + item['file'] + '
-')
-                    f.write('Caption: ' + item['caption'] + '
-')
-                    f.write('-' * 80 + '
-
-')
+                    f.write('File: ' + item['file'] + '\n')
+                    f.write('Caption: ' + item['caption'] + '\n')
+                    f.write('-' * 80 + '\n\n')
             
             for f in download_path.rglob('*.json*'):
                 f.unlink(missing_ok=True)
